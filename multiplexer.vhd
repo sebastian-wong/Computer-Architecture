@@ -43,19 +43,38 @@ entity multiplexer is
 end multiplexer;
 
 architecture Behavioral of multiplexer is
+--	signal unaffected : std_logic_vector(31 downto 0);
+	--unaffected <=(others <='0');
 begin
-		signal unaffected : std_logic_vector(31 downto 0) := (others <='0');
+						
+						
+		RESULT <= ADD_SUB_OP when CONTROL_OP = "00010" or CONTROL_OP = "00110" else --ADD/SUB
+			 
+			 SHIFTER_OP when CONTROL_OP = "00101" or 
+						CONTROL_OP = "01101" or CONTROL_OP = "01001" else --SLL/SRL/SRA
+			 
+			 MULT_OP when CONTROL_OP = "10000" or CONTROL_OP = "10001" else --MULT/MULTU
+			 
+			 DIV_OP when CONTROL_OP ="10010" or CONTROL_OP = "10011" else --DIV/DIVU
+			 
+			 SHIFTER_OP when CONTROL_OP = "00101" or CONTROL_OP = "01101" or CONTROL_OP = "01001" else
+			  
+			 (others => '0');		 -- SLT/SLTU	
 
-	with CONTROL_OP select
-		RESULT <=   ADD_SUB_OP when "00010" or "00110"; --ADD/SUB
-						SHIFTER_OP when "00101" or "01101" or "01001"; --SLL/SRL/SRA
-						MULT_OP when "10000" or "10001"; --MULT/MULTU
-						DIV_OP when "10010" or "10011"; --DIV/DIVU
-						--AND_OP when "00000"; --AND
-						--OR_OP  when "00001"; --OR
-						--XOR_OP when "00100"; --XOR
-						--NOR_OP when "01100"; --NOR
-					   unaffected when others; -- SLT/SLTU
+--			  AND_OP  when CONTROL_OP = "00000" else
+--			  OR_OP   when CONTROL_OP = "00001" else
+--			  XOR_OP  when CONTROL_OP = "00100" else
+--			  NOR_OP   when CONTROL_OP = "01100" else			  
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
 
 end Behavioral;
 

@@ -95,6 +95,10 @@ BEGIN
 
     --  wait for <clock>_period*10;
 
+		ADD_SUB_OP <= X"00000000";
+      SHIFTER_OP <= X"00000010";
+		MULT_OP    <= X"00000100";
+		DIV_OP     <= X"00001000";
 	
 		--ADDSUB
 		CONTROL_OP <= "00010";
@@ -121,10 +125,10 @@ BEGIN
 		
 		--DIV/DIVU
 		CONTROL_OP <= "10010";
-		WAIT FOR 50NS;
+		WAIT FOR 50 NS;
 		
 		CONTROL_OP <= "10011";
-		WAIT FOR 5ONS;
+		WAIT FOR 50 NS;
 		
 		
 		--OTHERS
