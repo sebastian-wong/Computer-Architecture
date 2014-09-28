@@ -49,25 +49,45 @@ signal state, n_state 	: states := COMBINATIONAL;
 
 
 ----------------------------------------------------------------------------
--- Adder instantiation
+-- ADDSUB instantiation
 ----------------------------------------------------------------------------
-component adder is
+component ADDSUB is
 generic (width : integer);
 port (A 		: in 	std_logic_vector(width-1 downto 0);
 		B 		: in 	std_logic_vector(width-1 downto 0);
-		C_in 	: in 	std_logic;
-		S 		: out std_logic_vector(width-1 downto 0);
-		C_out	: out std_logic);
-end component adder;
+		INVERSE 	: in 	std_logic;
+		SUM 		: out std_logic_vector(width-1 downto 0);
+		CARRY	: out std_logic);
+end component;
 
 ----------------------------------------------------------------------------
--- Adder signals
+--Shifter instantiation
 ----------------------------------------------------------------------------
+
+component Shift is
+    Port (
+			Shift_Controls :in STD_LOGIC_VECTOR(1 downto 0); --(0) is for direction, (1) is for shift type
+			Operand1 : in  STD_LOGIC_VECTOR (31 downto 0);
+           Operand2 : in  STD_LOGIC_VECTOR (31 downto 0);
+           Result1 : out  STD_LOGIC_VECTOR (31 downto 0);
+           Result2 : out  STD_LOGIC_VECTOR (31 downto 0));
+end component Shift;
+
+----------------------------------------------------------------------------
+-- ADDSUB signals
+----------------------------------------------------------------------------
+
 signal B 		: std_logic_vector(width-1 downto 0) := (others => '0'); 
-signal C_in 	: std_logic := '0';
-signal S 		: std_logic_vector(width-1 downto 0) := (others => '0'); 
-signal C_out	: std_logic := '0'; --not used
+signal INVERSE 	: std_logic := '0';
+signal SUM 		: std_logic_vector(width-1 downto 0) := (others => '0'); 
+signal CARRY	: std_logic := '0'; --not used
 
+
+-----------------------------------------------------------------------------
+--Shifter signals
+-----------------------------------------------------------------------------
+
+signal Shift_output : STD_LOGIC_VECTOR(31 downto 0);
 
 ----------------------------------------------------------------------------
 -- Signals for MULTI_CYCLE_PROCESS
@@ -80,7 +100,8 @@ signal done		 			: STD_LOGIC := '0';
 begin
 
 -- <port maps>
-adder32 : adder generic map (width =>  width) port map (  A=>Operand1, B=>B, C_in=>C_in, S=>S, C_out=>C_out );
+ADDSUBer : ADDSUB generic map (width =>  width) port map (  A=>Operand1, B=>Operand2, INVERSE=>CONTROL(2), SUM=>SUM, CARRY=>CARRY );
+Shifter : Shift port map(Operand1=>Operand1, Operand2=>Operand2, Shift_Controls(0)=>Control(3), Shift_Controls(1)=>Control(2), Result1=>Shift_output);
 -- </port maps>
 
 
@@ -89,7 +110,7 @@ adder32 : adder generic map (width =>  width) port map (  A=>Operand1, B=>B, C_i
 ----------------------------------------------------------------------------
 COMBINATIONAL_PROCESS : process (
 											Control, Operand1, Operand2, state, -- external inputs
-											S, -- ouput from the adder (or other components)
+											SUM, Shift_output, -- SUM: output from addsub, Shift_output : output from shifter
 											Result1_multi, Result2_multi, Debug_multi, done -- from multi-cycle process(es)
 											)
 begin
@@ -103,7 +124,7 @@ Debug <= (others=>'0');
 n_state <= state;
 
 B <= Operand2;
-C_in <= '0';
+--C_in <= '0';
 -- </default outputs>
 
 --reset
@@ -126,21 +147,21 @@ case state is
 			
 		--add
 		when "00010" =>
-			Result1 <= S;
+			Result1 <= SUM;
 			-- overflow
 			-- Sign bit (MSB) of the operands are the same, and is different from that of the result
-			Status(1) <= ( Operand1(width-1) xnor  Operand2(width-1) )  and ( Operand2(width-1) xor S(width-1) );
+			Status(1) <= ( Operand1(width-1) xnor  Operand2(width-1) )  and ( Operand2(width-1) xor SUM(width-1) );
 			
 		-- sub
 		when "00110" =>
 			--B <= not(Operand2);
 			--C_in <= '1';
-			Result1 <= S;
+			Result1 <= SUM;
 			-- overflow
 			--Sign bit (MSB) of the operands are different, and the result has a sign same as that of the second operand
-			Status(1) <= ( Operand1(width-1) xor Operand2(width-1)) and ( Operand2(width-1) xnor S(width-1));
+			Status(1) <= ( Operand1(width-1) xor Operand2(width-1)) and ( Operand2(width-1) xnor SUM(width-1));
 			--zero
-			if S = x"00000000" then 
+			if SUM = x"00000000" then 
 				Status(0) <= '1'; 
 			else
 				Status(0) <= '0';
@@ -149,12 +170,13 @@ case state is
 		--slt
 		when "00111" =>
 		
+		--SUM(31) is the MSB
 		--Result1 = 0x01 if operand1 < operand2
 		--Result1 = 0x00 if operand1 > operand2
 		--MSB of sum will be set to one during subtraction if operand2 > operand1
 		--This is because sum is negative
 		
-			Result1 <= (0 => S(31), others => '0');
+			Result1 <= (0 => SUM(31), others => '0');
 			Result2 <= (others => 'X');
 			Status(0) <= 'X';
 			Status(1) <= 'X';
@@ -171,11 +193,17 @@ case state is
 				Result1 <= (0 => '1', others => '0');
 			--MSB of both operands are the same			
 			else
-				Result1 <= (0 => S(31), others => '0');
+				Result1 <= (0 => SUM(31), others => '0');
 			end if;
 			
 			Status(0) <= 'X';
-			Status(1) <= 'X';						
+			Status(1) <= 'X';	
+			
+			--Shifter outputs
+			-- for SLL, SRL, and SRA
+		when "00101" | "01101" | "01001" =>
+			
+				Result1 <= Shift_Output;				
 			
 		-- multi-cycle operations
 		when "10000" | "11110" => 
@@ -262,27 +290,27 @@ end Behavioral;
 -- Adder Entity
 ------------------------------------------------------------------
 
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+--library IEEE;
+--use IEEE.STD_LOGIC_1164.ALL;
+--use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
-entity adder is
-generic (width : integer := 32);
-port (A 		: in std_logic_vector(width-1 downto 0);
-		B 		: in std_logic_vector(width-1 downto 0);
-		C_in 	: in std_logic;
-		S 		: out std_logic_vector(width-1 downto 0);
-		C_out	: out std_logic);
-end adder;
+--entity adder is
+--generic (width : integer := 32);
+--port (A 		: in std_logic_vector(width-1 downto 0);
+		--B 		: in std_logic_vector(width-1 downto 0);
+		--C_in 	: in std_logic;
+		--S 		: out std_logic_vector(width-1 downto 0);
+		--C_out	: out std_logic);
+--end adder;
 
 ------------------------------------------------------------------
 -- Adder Architecture
 ------------------------------------------------------------------
 
-architecture adder_arch of adder is
-signal S_wider : std_logic_vector(width downto 0);
-begin
-	S_wider <= ('0'& A) + ('0'& B) + C_in;
-	S <= S_wider(width-1 downto 0);
-	C_out <= S_wider(width);
-end adder_arch;
+--architecture adder_arch of adder is
+--signal S_wider : std_logic_vector(width downto 0);
+--begin
+--	S_wider <= ('0'& A) + ('0'& B) + C_in;
+--	S <= S_wider(width-1 downto 0);
+--	C_out <= S_wider(width);
+--end adder_arch;

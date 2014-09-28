@@ -41,7 +41,7 @@ ARCHITECTURE behavior OF shift_tester IS
  
     COMPONENT Shift
     PORT(
-         Control : IN  std_logic_vector(4 downto 0);
+         Shift_Controls : IN  std_logic_vector(1 downto 0);
          Operand1 : IN  std_logic_vector(31 downto 0);
          Operand2 : IN  std_logic_vector(31 downto 0);
          Result1 : OUT  std_logic_vector(31 downto 0);
@@ -51,7 +51,7 @@ ARCHITECTURE behavior OF shift_tester IS
     
 
    --Inputs
-   signal Control : std_logic_vector(4 downto 0) := (others => '0');
+   signal Shift_Controls : std_logic_vector(1 downto 0) := (others => '0');
    signal Operand1 : std_logic_vector(31 downto 0) := (others => '0');
    signal Operand2 : std_logic_vector(31 downto 0) := (others => '0');
 
@@ -67,7 +67,7 @@ BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
    uut: Shift PORT MAP (
-          Control => Control,
+          Shift_Controls => Shift_Controls,
           Operand1 => Operand1,
           Operand2 => Operand2,
           Result1 => Result1,
@@ -90,8 +90,8 @@ BEGIN
       -- hold reset state for 100 ns.
 		
 --test LSL
-	wait for 100 ns;
-	Control <= "00101";
+--	wait for 100 ns;
+	Shift_Controls <= "01";
 	Operand1 <= x"FFFF0000";
 	Operand2 <= x"00000001";
 	
@@ -112,7 +112,7 @@ BEGIN
 	Operand2 <= x"00000010";
 	
    wait for 100 ns;
-	Control <= "01101";
+	Shift_Controls <= "11";
 	Operand1 <= x"FFFFFFFF";
 	Operand2 <= x"00000001";
 	
@@ -133,24 +133,24 @@ BEGIN
 	Operand2 <= x"00000010";
 	
 	wait for 100 ns;
-	Control <= "01001";
-	Operand1 <= x"F0000000";
+	Shift_Controls <= "10";
+	Operand1 <= x"F0000001";
 	Operand2 <= x"00000001";
 	
 	wait for 20 ns;
-	Operand1 <= x"F0000000";
+	Operand1 <= x"F0000001";
 	Operand2 <= x"00000002";
 
 	wait for 20 ns;
-	Operand1 <= x"F0000000";
+	Operand1 <= x"F0000001";
 	Operand2 <= x"00000004";
 
 	wait for 20 ns;
-	Operand1 <= x"F0000000";
+	Operand1 <= x"F0000001";
 	Operand2 <= x"00000008";
 
 	wait for 20 ns;
-	Operand1 <= x"F0000000";
+	Operand1 <= x"F0000001";
 	Operand2 <= x"00000010";
 	
 	

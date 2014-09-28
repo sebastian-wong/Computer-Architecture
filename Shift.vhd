@@ -31,7 +31,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 entity Shift is
     Port (
-			Control:	in STD_LOGIC_VECTOR (4 downto 0);
+			Shift_Controls :in STD_LOGIC_VECTOR(1 downto 0); --(0) is for direction, (1) is for shift type
 			Operand1 : in  STD_LOGIC_VECTOR (31 downto 0);
            Operand2 : in  STD_LOGIC_VECTOR (31 downto 0);
            Result1 : out  STD_LOGIC_VECTOR (31 downto 0);
@@ -42,88 +42,125 @@ architecture Behavioral of Shift is
 
 begin
 
-process(Control, Operand1, Operand2)
+process(Shift_Controls, Operand1, Operand2)
 
 	variable temp_result : STD_LOGIC_VECTOR(31 downto 0);
+	variable temp_result_higher :STD_LOGIC_VECTOR (31 downto 0);
 	variable MSB : STD_LOGIC;
 	
 begin
 	
-	temp_result := Operand1;
+	--temp_result := Operand1;
 	
 	
 	
-	case Control is
+	case Shift_Controls is
+	
 	
 	--Logical shift left
-	when "00101" =>
+	when "01" =>
+	
+	temp_result := Operand1; --lower 32 bits
+	temp_result_higher := (others => '0'); --higher 32 bits
+	
+	
+	
 		if Operand2(0) = '1' then
+			temp_result_higher := temp_result_higher( 30 downto 0) & temp_result(31);
 			temp_result := temp_result(30 downto 0) & '0';
 			end if;
 		if Operand2(1) = '1' then
+			temp_result_higher := temp_result_higher(29 downto 0) & temp_result(31 downto 30);
 			temp_result := temp_result(29 downto 0) & "00";
 			end if;
 		if Operand2(2) = '1' then
+			temp_result_higher := temp_result_higher(27 downto 0) & temp_result(31 downto 28);		
 			temp_result := temp_result(27 downto 0) & x"0";
 			end if;
 		if Operand2(3) = '1' then
+			temp_result_higher := temp_result_higher(23 downto 0) & temp_result(31 downto 24);
 			temp_result := temp_result(23 downto 0) & x"00";
 			end if;
 		if Operand2(4) = '1' then
+			temp_result_higher := temp_result_higher(15 downto 0) & temp_result(31 downto 16);
 			temp_result := temp_result(15 downto 0) & x"0000";
-			end if;			
+			end if;
+		
+		Result1 <= temp_result;
+		Result2 <= temp_result_higher;
 				
 	--Logical shift right 
-	when "01101" =>
+	when "11" =>
+	
+	temp_result_higher := Operand1;
+	temp_result := (others => '0');
+	
 		if Operand2(0) = '1' then
-			temp_result := '0' & temp_result(31 downto 1);
+			temp_result :=  temp_result_higher(0) & temp_result(31 downto 1);
+			temp_result_higher := '0' & temp_result_higher(31 downto 1);
 			end if;
 		if Operand2(1) = '1' then
-			temp_result := "00" & temp_result(31 downto 2);
+			temp_result :=  temp_result_higher(1 downto 0) & temp_result(31 downto 2);
+			temp_result_higher := "00" & temp_result_higher(31 downto 2);
 			end if;
 		if Operand2(2) = '1' then
-			temp_result := x"0" & temp_result(31 downto 4);
+			temp_result :=  temp_result_higher(3 downto 0) & temp_result(31 downto 4);
+			temp_result_higher := x"0" & temp_result_higher(31 downto 4);
 			end if;
 		if Operand2(3) = '1' then
-			temp_result := x"00" & temp_result(31 downto 8);
+			temp_result :=  temp_result_higher(7 downto 0) & temp_result(31 downto 8);
+			temp_result_higher := x"00" & temp_result_higher(31 downto 8);
 			end if;
 		if Operand2(4) = '1' then
-			temp_result := x"0000" & temp_result(31 downto 16);
-			end if;				
+			temp_result :=  temp_result_higher(15 downto 0) & temp_result(31 downto 16);
+			temp_result_higher := x"0000" & temp_result_higher(31 downto 16);
+			end if;
+
+		Result1 <= temp_result_higher;
+		Result2 <= temp_result;
 	
 	-- Shift right arithmetic
-	when "01001" =>
+	when "10" =>
 		MSB := Operand1(31);
+		temp_result_higher := Operand1;
+		temp_result := (others => '0');
 		
 		if Operand2(0) = '1' then
-			temp_result(31) := MSB;
-			temp_result(30 downto 0) := temp_result(31 downto 1);
+			temp_result_higher(31) := MSB;
+			temp_result :=  temp_result_higher(0) & temp_result(31 downto 1);
+			temp_result_higher(30 downto 0) := temp_result_higher(31 downto 1);
 			end if;
 		if Operand2(1) = '1' then
-			temp_result(31 downto 30) := (others => MSB);
-			temp_result(29 downto 0) := temp_result(31 downto 2);
+			temp_result_higher(31 downto 30) := (others => MSB);
+			temp_result :=  temp_result_higher(1 downto 0) & temp_result(31 downto 2);
+			temp_result_higher(29 downto 0) := temp_result_higher(31 downto 2);
 			end if;
 		if Operand2(2) = '1' then
-			temp_result(31 downto 28) := (others => MSB);			
-			temp_result(27 downto 0) := temp_result(31 downto 4);
+			temp_result_higher(31 downto 28) := (others => MSB);
+			temp_result :=  temp_result_higher(3 downto 0) & temp_result(31 downto 4);			
+			temp_result_higher(27 downto 0) := temp_result_higher(31 downto 4);
 			end if;
 		if Operand2(3) = '1' then
-			temp_result(31 downto 24) := (others => MSB);			
-			temp_result(23 downto 0) := temp_result(31 downto 8);
+			temp_result_higher(31 downto 24) := (others => MSB);
+			temp_result :=  temp_result_higher(7 downto 0) & temp_result(31 downto 8);			
+			temp_result_higher(23 downto 0) := temp_result_higher(31 downto 8);
 			end if;
 		if Operand2(4) = '1' then
-			temp_result(31 downto 16) := (others => MSB);			
-			temp_result(15 downto 0) := temp_result(31 downto 16);
-			end if;				
+			temp_result_higher(31 downto 16) := (others => MSB);
+			temp_result :=  temp_result_higher(15 downto 0) & temp_result(31 downto 16);			
+			temp_result_higher(15 downto 0) := temp_result_higher(31 downto 16);
+			end if;
+
+		Result1 <= temp_result_higher;
+		Result2 <= temp_result;
 	
 	when others =>
 		
-	
 			--do nothing
 	end case;
 	
-	Result1 <= temp_result;
-	Result2 <= (others => 'X');
+	--Result1 <= temp_result;
+	--Result2 <= (others => 'X');
 	
 end process;	
 
