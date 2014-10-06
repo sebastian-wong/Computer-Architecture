@@ -66,7 +66,6 @@ end component;
 
 component Shift is
     Port (
-			--clk : in std_logic;
 			Shift_Controls :in STD_LOGIC_VECTOR(1 downto 0); --(0) is for direction, (1) is for shift type
 			Operand1 : in  STD_LOGIC_VECTOR (31 downto 0);
            Operand2 : in  STD_LOGIC_VECTOR (31 downto 0);
@@ -89,7 +88,6 @@ signal CARRY	: std_logic := '0'; --not used
 -----------------------------------------------------------------------------
 
 signal Shift_output : STD_LOGIC_VECTOR(31 downto 0);
-signal Shift_output2 : STD_LOGIC_VECTOR(31 downto 0);
 
 ----------------------------------------------------------------------------
 -- Signals for MULTI_CYCLE_PROCESS
@@ -98,14 +96,12 @@ signal Result1_multi		: STD_LOGIC_VECTOR (width-1 downto 0) := (others => '0');
 signal Result2_multi		: STD_LOGIC_VECTOR (width-1 downto 0) := (others => '0');
 signal Debug_multi		: STD_LOGIC_VECTOR (width-1 downto 0) := (others => '0'); 
 signal done		 			: STD_LOGIC := '0';
---signal div_count : std_logic_vector(15 downto 0) := (others => '0');
-
 
 begin
 
 -- <port maps>
 ADDSUBer : ADDSUB generic map (width =>  width) port map (  A=>Operand1, B=>Operand2, INVERSE=>CONTROL(2), SUM=>SUM, CARRY=>CARRY );
-Shifter : Shift port map(Operand1=>Operand1, Operand2=>Operand2, Shift_Controls=> Control(3 downto 2), Result1=>Shift_output, Result2 => Shift_output2);
+Shifter : Shift port map(Operand1=>Operand1, Operand2=>Operand2, Shift_Controls(0)=>Control(3), Shift_Controls(1)=>Control(2), Result1=>Shift_output);
 -- </port maps>
 
 
@@ -114,7 +110,7 @@ Shifter : Shift port map(Operand1=>Operand1, Operand2=>Operand2, Shift_Controls=
 ----------------------------------------------------------------------------
 COMBINATIONAL_PROCESS : process (
 											Control, Operand1, Operand2, state, -- external inputs
-											SUM, Shift_output, CARRY, -- SUM: output from addsub, Shift_output : output from shifter
+											SUM, Shift_output, -- SUM: output from addsub, Shift_output : output from shifter
 											Result1_multi, Result2_multi, Debug_multi, done -- from multi-cycle process(es)
 											)
 begin
@@ -127,7 +123,7 @@ Debug <= (others=>'0');
 
 n_state <= state;
 
---B <= Operand2;
+B <= Operand2;
 --C_in <= '0';
 -- </default outputs>
 
@@ -158,7 +154,8 @@ case state is
 			
 		-- sub
 		when "00110" =>
-
+			--B <= not(Operand2);
+			--C_in <= '1';
 			Result1 <= SUM;
 			-- overflow
 			--Sign bit (MSB) of the operands are different, and the result has a sign same as that of the second operand
@@ -173,33 +170,34 @@ case state is
 		--slt
 		when "00111" =>
 		
-		--SUM(31) is the MSB, which is the sign
+		--SUM(31) is the MSB
 		--Result1 = 0x01 if operand1 < operand2
-		--Result1 = 0x00 if operand1 >= operand2
+		--Result1 = 0x00 if operand1 > operand2
 		--MSB of sum will be set to one during subtraction if operand2 > operand1
 		--This is because sum is negative
 		
-			-- Check for overflow condition
-			if ((Operand1(width-1) xor Operand2(width-1)) and (Operand2(width-1) xnor SUM(width-1))) = '1' then
-				Result1 <= (0 => NOT SUM(31), others => '0');
-			else
-				Result1 <= (0 => SUM(31), others => '0');
-			end if;	
-						
+			Result1 <= (0 => SUM(31), others => '0');
 			Result2 <= (others => 'X');
-			Status(0) <= 'X';						
+			Status(0) <= 'X';
 			Status(1) <= 'X';
-						
+				
 		--sltu
 		when "01110" =>	
 		
-		-- Look at the opposite of carry to determine if A<B
-			Result1 <= (0 => NOT CARRY, others => '0');
+			--Operand1 is definitely > than Operand2
+			if Operand1(31) = '1' and Operand2(31) = '0' then
+				Result1 <= (others => '0');
+				
+			--Operand2 is definitely > than Operand1	
+			elsif Operand1(31) = '0' and Operand2(31) = '1' then
+				Result1 <= (0 => '1', others => '0');
+			--MSB of both operands are the same			
+			else
+				Result1 <= (0 => SUM(31), others => '0');
+			end if;
 			
-			Result2 <= (others => 'X');
-			Status(0) <= 'X';						
-			Status(1) <= 'X';
-		
+			Status(0) <= 'X';
+			Status(1) <= 'X';	
 			
 			--Shifter outputs
 			-- for SLL, SRL, and SRA
@@ -207,8 +205,8 @@ case state is
 			
 				Result1 <= Shift_Output;				
 			
-		-- multi-cycle operations mult, multu, div, divu
-		when "10000" | "10001" | "10010" | "10011" => 
+		-- multi-cycle operations
+		when "10000" | "11110" => 
 			n_state <= MULTI_CYCLE;
 			Status(2) <= '1';
 		-- default cases (already covered)
@@ -249,6 +247,7 @@ MULTI_CYCLE_PROCESS : process (Clk) -- multi-cycle operations done here
 -- assume that Operand1 and Operand 2 do not change while multi-cycle operations are being performed
 variable count : std_logic_vector(15 downto 0) := (others => '0');
 variable temp_sum : std_logic_vector(2*width-1 downto 0) := (others => '0');
+<<<<<<< HEAD
 variable temp_op1 : std_logic_vector(2*width-1 downto 0) := (others => '0');
 variable temp_op2 : std_logic_vector(width-1 downto 0) := (others => '0');
 variable inverse_bits : std_logic_vector (width-1 downto 0); 
@@ -277,11 +276,14 @@ variable dividend_start : std_logic := '0';
 variable divisor_start : std_logic := '0';
 
 
+=======
+>>>>>>> parent of a4fd702... Updated all tested files for Lab 2
 begin  
    if (Clk'event and Clk = '1') then 
 		if Control(5) = '1' then
-			count := (others => '0'); 
+			count := (others => '0');
 			temp_sum := (others => '0');
+<<<<<<< HEAD
 			
 			quotient  := (others => '0'); 
 			remainder:= (others => '0'); 
@@ -296,42 +298,22 @@ begin
 			divisor_start := '0';
 	
 					
+=======
+>>>>>>> parent of a4fd702... Updated all tested files for Lab 2
 		end if;
 		done <= '0';
 		if n_state = MULTI_CYCLE then
-			case Control(4 downto 0) is			
-			when "10000" | "10001" =>  -- takes 34 cycles to execute, returns Op1 * Op2 )
+			case Control(4 downto 0) is
+			when "10000" =>  -- takes 16 cycles to execute, returns Operand1<<16 ( a terrible way of doing shift - adding the number 16 times :P )
 				if state = COMBINATIONAL then  -- n_state = MULTI_CYCLE and state = COMBINATIONAL implies we are just transitioning into MULTI_CYCLE
 					temp_sum := (others => '0');
-					count := (others => '0');	
-
-					temp_op1(2*width-1 downto width) := (others => '0'); -- zero extend 			
-					sign_op1 := Operand1(width-1);
-					sign_op2 := Operand2(width-1);
-					result_sign := Operand1(width-1) xor Operand2(width-1); --check sign of result
-					
-					if Control(0) = '0' then
-					inverse_bits := (others => sign_op1);
-					temp_op1(width-1 downto 0) := (Operand1 xor inverse_bits) + sign_op1; --change to unsigned number
-					inverse_bits := (others => sign_op2);
-					temp_op2 := (Operand2 xor inverse_bits) + sign_op2; --change to unsigned number	
-					
-					else
-					temp_op1(width-1 downto 0) := Operand1;	
-					temp_op2 := Operand2;	
-					end if;
-							
-			else	
-				count := count+1;		
-				if count=x"0021" then
-					if Control(0) = '0' then
-					inverse_result := (others => result_sign);
-    				temp_sum := (temp_sum xor inverse_result) + result_sign;
-					end if;
-				
-				elsif count=x"0022" then				
-					Result2_multi <= temp_sum(2*width-1 downto width);	
+					count := (others => '0');					
+				end if;		
+				count := count+1;	
+				temp_sum := temp_sum + Operand1;
+				if count=x"0010" then	
 					Result1_multi <= temp_sum(width-1 downto 0);
+<<<<<<< HEAD
 					Debug_multi <= (others => 'X'); -- just a random output
 					done <= '1';				
 				else
@@ -578,6 +560,19 @@ begin
 
 			
 
+=======
+					Result2_multi <= temp_sum(2*width-1 downto width);
+					Debug_multi <= Operand1(width/2-1 downto 0) & Operand2(width/2-1 downto 0); -- just a random output
+					done <= '1';	
+				end if;
+			when "11110" => -- takes 1 cycle to execute, just returns the operands
+				if state = COMBINATIONAL then
+					Result1_multi <= Operand1;
+					Result2_multi <= Operand2;
+					Debug_multi <= Operand1(width-1 downto width/2) & Operand2(width-1 downto width/2);
+					done <= '1';
+				end if;	
+>>>>>>> parent of a4fd702... Updated all tested files for Lab 2
 			when others=> null;
 			end case;
 		end if;
