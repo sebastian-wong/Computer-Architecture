@@ -132,6 +132,8 @@ BEGIN
 	Operand1 <= x"FFFFFFFF";
 	Operand2 <= x"00000010";
 	
+	
+	
 	wait for 100 ns;
 	Shift_Controls <= "10";
 	Operand1 <= x"F0000001";
